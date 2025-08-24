@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>インスタファンづくり画像生成ツール</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 インスタファンづくり画像生成ツール</h1>
+        <p class="subtitle">キーワードから美しい画像とキャプションを自動生成</p>
+        
+        <div class="input-section">
+            <input type="text" id="keyword" placeholder="キーワードを入力してください（例：夏の少女）" maxlength="100">
+            
+            <div class="style-selection">
+                <label for="artStyle">画風を選択:</label>
+                <select id="artStyle">
+                    <option value="v4b">V4B風味 (クリーンな線画・高コントラスト)</option>
+                    <option value="anime">アニメ風 (ソフトなアニメスタイル・パステルカラー)</option>
+                    <option value="realistic">リアル風 (写実的・自然な照明)</option>
+                    <option value="illustration">イラスト風 (デジタルアート・筆のタッチ)</option>
+                    <option value="watercolor">水彩風 (水彩画・ソフトなエッジ)</option>
+                    <option value="oilpainting">油絵風 (油絵のテクスチャ・豊かな色彩)</option>
+                </select>
+            </div>
+            
+            <button id="generateBtn" onclick="generateContent()">✨ 生成する</button>
+        </div>
+        
+        <div id="loading" class="loading hidden">
+            <div class="spinner"></div>
+            <p>AIが素敵な画像とキャプションを生成中...</p>
+        </div>
+        
+        <div id="error" class="error hidden"></div>
+        
+        <div id="result" class="result hidden">
+            <div class="image-section">
+                <h2>🖼️ 生成された画像</h2>
+                <img id="generatedImage" src="" alt="生成された画像">
+                <div class="prompt-section">
+                    <h3>📝 使用されたプロンプト</h3>
+                    <p id="imagePrompt"></p>
+                    <div class="prompt-notice">
+                        <p>💡 <strong>ヒント:</strong> 生成された画像がご希望に合わない場合は、上記プロンプトをコピーしてお手持ちのAIモデル（Claude、ChatGPT、Stable Diffusion等）でお試しください。</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="caption-section">
+                <h2>📱 Instagramキャプション</h2>
+                <div id="caption" class="caption-text"></div>
+                <button onclick="copyCaption()" class="copy-btn">📋 キャプションをコピー</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentCaption = '';
+
+        async function generateContent() {
+            const keyword = document.getElementById('keyword').value.trim();
+            if (!keyword) {
+                showError('キーワードを入力してください');
+                return;
+            }
+
+            const generateBtn = document.getElementById('generateBtn');
+            const loading = document.getElementById('loading');
+            const result = document.getElementById('result');
+            const error = document.getElementById('error');
+
+            // UI状態をリセット
+            generateBtn.disabled = true;
+            generateBtn.textContent = '生成中...';
+            loading.classList.remove('hidden');
+            result.classList.add('hidden');
+            error.classList.add('hidden');
+
+            try {
+                const artStyle = document.getElementById('artStyle').value;
+                const response = await fetch('/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ keyword: keyword, style: artStyle })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'エラーが発生しました');
+                }
+
+                displayResult(data);
+
+            } catch (err) {
+                showError(err.message);
+            } finally {
+                generateBtn.disabled = false;
+                generateBtn.textContent = '✨ 生成する';
+                loading.classList.add('hidden');
+            }
+        }
+
+        function displayResult(data) {
+            document.getElementById('generatedImage').src = data.image_url;
+            document.getElementById('imagePrompt').textContent = data.image_prompt;
+            document.getElementById('caption').innerHTML = data.caption.replace(/\n/g, '<br>');
+            currentCaption = data.caption;
+            document.getElementById('result').classList.remove('hidden');
+        }
+
+        function showError(message) {
+            const errorDiv = document.getElementById('error');
+            errorDiv.textContent = message;
+            errorDiv.classList.remove('hidden');
+        }
+
+        function copyCaption() {
+            if (currentCaption) {
+                navigator.clipboard.writeText(currentCaption).then(() => {
+                    const copyBtn = document.querySelector('.copy-btn');
+                    const originalText = copyBtn.textContent;
+                    copyBtn.textContent = '✅ コピーしました！';
+                    copyBtn.style.backgroundColor = '#28a745';
+                    
+                    setTimeout(() => {
+                        copyBtn.textContent = originalText;
+                        copyBtn.style.backgroundColor = '';
+                    }, 2000);
+                }).catch(err => {
+                    alert('コピーに失敗しました');
+                });
+            }
+        }
+
+        // Enterキーでも実行
+        document.getElementById('keyword').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                generateContent();
+            }
+        });
+    </script>
+</body>
+</html>
